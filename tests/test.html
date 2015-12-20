@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>NerdyJS tests</title>
+<style>
+.results {
+    width: 400px;
+    display: inline-block;
+    text-align: left;
+    padding: 0 20px;
+}
+.group, .unit {
+    list-style-type: square;
+}
+.test {
+    list-style-type: circle;
+}
+.test.fail {
+    background-color: #faa;
+}
+</style>
+<script type="text/javascript" src="../libs/underscore.js"></script>
+<script type="text/javascript" src="../libs/numeric.js"></script>
+<script type="text/javascript" src="../libs/classy.js"></script>
+<script type="text/javascript" src="../libs/tasks.js"></script>
+<script type="text/javascript" src="test.js"></script>
+<script type="text/javascript" src="../nerdy.min.js"></script>
+<script type="text/javascript" src="nerdyTests.js"></script>
+<script>
+function buildResults(x) {
+    var li, ul = document.createElement('ul');
+    _.each(x.groups, function(group) {
+        li = document.createElement('li');
+        li.className = 'group';
+        li.appendChild(document.createTextNode(group.name));
+        li.appendChild(buildResults(group));
+        ul.appendChild(li);
+    });
+    _.each(x.units, function(unit) {
+        li = document.createElement('li');
+        li.className = 'unit ' + unit.status;
+        li.appendChild(document.createTextNode(unit.name + ': ' + unit.status));
+        var tests = document.createElement('ul');
+        _.each(unit.tests, function(test) {
+            var test_li = document.createElement('li');
+            test_li.appendChild(document.createTextNode(test.name));
+            test_li.className = test.status + ' test';
+            tests.appendChild(test_li);
+        });
+        li.appendChild(tests);
+        ul.appendChild(li);
+    });
+    return ul;
+}
+
+function getStats(results) {
+    var stats = {
+        passed: 0,
+        total: 0
+    };
+    (function inner(x) {
+        _.each(x.groups, inner);
+        _.each(x.units, function(unit) {
+            _.each(unit.tests, function(test) {
+                stats.passed += (test.status == 'pass');
+                stats.total += 1;
+            })
+        })
+    })(results);
+    stats.failed = stats.total - stats.passed;
+    return stats;
+}
+
+window.onload = function() {
+    var tests = new Tests('main');
+    nerdyTests(tests);
+    tests.start(function(results) {
+        results.groups[0].name = 'Nerdy (standard tests)';
+        var stats = getStats(results),
+            total = stats.total,
+            percent = ((stats.passed / total) * 100).toFixed(4);
+        document.getElementById('stats').innerHTML = 'Passed ' + percent + '% of ' + total + ' tests';
+        document.getElementById('out').appendChild(buildResults(results));
+    });
+
+    var worker = new Worker('worker.test.js');
+    worker.addEventListener('message', function(e) {
+        var results = e.data;
+        results.groups[0].name = 'Nerdy (web worker tests)';
+        var stats = getStats(results),
+            total = stats.total,
+            percent = ((stats.passed / total) * 100).toFixed(4);
+        document.getElementById('worker-stats').innerHTML = 'Passed ' + percent + '% of ' + total + ' tests';
+        document.getElementById('worker-out').appendChild(buildResults(results));
+    }, false);
+};
+</script>
+</head>
+<body style="text-align: center">
+    <div class="results">
+        <div id="stats"></div>
+        <div id="out"></div>
+    </div>
+    <div class="results">
+        <div id="worker-stats"></div>
+        <div id="worker-out"></div>
+    </div>
+</body>
+</html>

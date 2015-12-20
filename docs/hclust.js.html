@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: hclust.js</title>
+    
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+    
+    <h1 class="page-title">Source: hclust.js</h1>
+    
+    
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source"><code>Classy.module(function(global) {
+    var sum = numeric.sum,
+        dot = numeric.dot,
+        mul = numeric.mul,
+        div = numeric.div,
+        add = numeric.add,
+        sub = numeric.sub,
+        neg = numeric.neg,
+        log = numeric.log,
+        pow = numeric.pow,
+        sqrt = numeric.sqrt,
+        abs = numeric.abs,
+        transpose = numeric.transpose,
+        addeq = numeric.addeq,
+        subeq = numeric.subeq,
+        muleq = numeric.muleq;
+    /** &lt;a href="http://en.wikipedia.org/wiki/Hierarchical_clustering">Hierarchical Clustering&lt;/a>
+     * @function hclust
+     * @memberof nerdy
+     * @param {options} options Options for hierarchical clustering
+     * @return {Array} The resulting tree
+     * @example
+// Cluster "data" nerdy.Dataset
+// Based on the columns "a", "b", and "c"
+var tree = nerdy.hclust({
+    samples: data,
+    // Distance function between two vector (default is euclidean)
+    distance: nerdy.distance.euclidean,
+    // Linkage can be single, complete, or average (default is single)
+    linkage: 'single',
+    x: ['a', 'b', 'c'],
+});
+console.log(tree);
+     */
+    nerdy.hclust = function(options) {
+        _.defaults(options, {
+            linkage: 'single',
+            distance: nerdy.distance,
+            expansion: 'linear'
+        });
+        var samples = options.samples;
+        var features = nerdy.featureSet(samples, options);
+        var X = features.matrix;
+        var linkage = options.linkage;
+        var distance = options.distance;
+        var m = X.length;
+        // Distance matrix where the diagonal will be Infinity
+        var dists = numeric.rep([m, m], Infinity);
+        // Vector of indices for closest cluster for ith cluster
+        var mins = numeric.rep([m], 0);
+        // Create distance matrix and vector of minimum indices
+        for (var i = 0; i &lt; m; i++) {
+            for (var j = 0; j &lt; m; j++) {
+                if (i != j) {
+                    dists[i][j] = distance(X[i], X[j]);
+                }
+                if (dists[i][j] &lt; dists[i][mins[i]]) {
+                    mins[i] = j;
+                }
+            }
+        }
+        var root = null;
+        var sizes = numeric.rep([m], 1);
+        var clusters = numeric.linspace(0, m - 1);
+        for (var p = 0; p &lt; m - 1; p++) {
+            // c1 and c2 are two closest clusters to one another
+            var c1 = 0;
+            for (var i = 0; i &lt; m; i++) {
+                if (dists[i][mins[i]] &lt; dists[c1][mins[c1]]) {
+                    c1 = i;
+                }
+            }
+            var c2 = mins[c1];
+            // node contains each cluster
+            var node = [clusters[c1], clusters[c2]];
+            clusters[c1] = node;
+            sizes[c1] += sizes[c2];
+            // Adjust distances to new cluster according to linkage
+            for (var j = 0; j &lt; m; j++) {
+                switch (linkage) {
+                    case 'single':
+                        if (dists[c1][j] > dists[c2][j]) {
+                            dists[j][c1] = dists[c1][j] = dists[c2][j];
+                        }
+                        break;
+                    case 'complete':
+                        if (dists[c1][j] &lt; dists[c2][j]) {
+                            dists[j][c1] = dists[c1][j] = dists[c2][j];
+                        }
+                        break;
+                    case 'average':
+                        var a = sizes[c1] * dists[c1][j];
+                        var b = sizes[c2] * dists[c2][j];
+                        dists[j][c1] = dists[c1][j] = (a + b) / (sizes[c1] + sizes[j]);
+                        break;
+                }
+            }
+            // our linkage loop unset this, fix it
+            dists[c1][c1] = Infinity;
+            // c2 is useless now, make it infinite distance
+            for (var i = 0; i &lt; m; i++) {
+                dists[i][c2] = dists[c2][i] = Infinity;
+            }
+            // Recalculate minimums
+            for (var j = 0; j &lt; m; j++) {
+                if (mins[j] == c2) {
+                    mins[j] = c1;
+                }
+                if (dists[c1][j] &lt; dists[c1][mins[c1]]) {
+                    mins[c1] = j;
+                }
+            }
+            root = node;
+        }
+        return root;
+    };
+});
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Index</a></h2><h3>Classes</h3><ul><li><a href="nerdy.Dataset.html">Dataset</a></li></ul><h3>Namespaces</h3><ul><li><a href="nerdy.html">nerdy</a></li><li><a href="nerdy.distance.html">distance</a></li><li><a href="nerdy.random.html">random</a></li></ul>
+</nav>
+
+<br clear="both">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.2.0-dev</a> on Sat Nov 30 2013 20:48:32 GMT-0600 (CST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
